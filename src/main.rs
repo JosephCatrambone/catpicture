@@ -11,7 +11,7 @@ use image::{GenericImage, DynamicImage, imageops, FilterType};
 
 const DEFAULT_WIDTH : u32 = 80;
 const DEFAULT_HEIGHT : u32 = 30;
-const USE_XTERM_COLORS : &'static str = "-t";
+const USE_FULL_COLORS : &'static str = "-c";
 const OUTPUT_WIDTH : &'static str = "-w";
 const OUTPUT_HEIGHT : &'static str = "-h";
 const SOURCE_RECT : &'static str = "-r";
@@ -20,9 +20,9 @@ const HELP_SHORT : &'static str = "-?";
 const HELP_LONG : &'static str = "--help";
 const HELP_STRING : &'static str = r#"
 Usage: 
-catpicture [--help/-?] [-t] [-w] [-h] [-r x1 y1 x2 y2] [-g] [filename]
+catpicture [--help/-?] [-c] [-w] [-h] [-r x1 y1 x2 y2] [-g] [filename]
 --help/-?	This message.
--t	Force XTERM color escapes, matching nearest color. 
+-c	Try to use full color instead of nearest XTERM color. 
 -w	Set output width.
 -h	Set output height.
 -r xywh	Given four points (left top right bottom), cut the specified region from the picture for display.
@@ -35,7 +35,7 @@ struct Settings {
 	output_width : u32,
 	output_height : u32,
 	region : Option<(u32, u32, u32, u32)>,
-	use_xterm_colors : bool,
+	use_full_colors : bool,
 	show_help : bool,
 	force_grey : bool,
 }
@@ -47,7 +47,7 @@ fn parse_args(args : Vec<String>) -> Settings {
 		output_height : DEFAULT_HEIGHT,
 		region : None,
 		show_help : false,
-		use_xterm_colors : false,
+		use_full_colors : false,
 		force_grey : false,
 	};
 
@@ -58,8 +58,8 @@ fn parse_args(args : Vec<String>) -> Settings {
 			continue;
 		}
 		// args[0] == file name.
-		if args[i] == USE_XTERM_COLORS {
-			settings.use_xterm_colors = true;
+		if args[i] == USE_FULL_COLORS {
+			settings.use_full_colors = true;
 		} else if args[i] == HELP_SHORT || args[i] == HELP_LONG {
 			settings.show_help = true;
 		} else if args[i] == OUTPUT_WIDTH { // TODO: Check OOB.
@@ -88,8 +88,12 @@ fn parse_args(args : Vec<String>) -> Settings {
 	settings
 }
 
-fn print_color_character(c : char, r : u8, g : u8, b : u8, restrict_to_xterm : bool) {
-	if restrict_to_xterm {
+fn print_color_character(c : char, r : u8, g : u8, b : u8, use_full_colors : bool) {
+	if use_full_colors { // Generate color code.
+		// ESC[38;2;<r>;<g>;<b>m (Foreground)
+		// ESC[48;2;<r>;<g>;<b>m (Background)
+		print!("\u{1B}[38;2;{};{};{}m{}", r, g, b, c);
+	} else {
 		// If we support full color switching, use that, otherwise, get the nearest color match.
 		let mut color_lookup = HashMap::new();
 		color_lookup.insert([0u8, 0, 0], 30); // Black.
@@ -114,10 +118,6 @@ fn print_color_character(c : char, r : u8, g : u8, b : u8, restrict_to_xterm : b
 			}
 		}
 		print!("\u{1B}[{}m{}", nearest_color, c);
-	} else { // Generate color code.
-		// ESC[38;2;<r>;<g>;<b>m (Foreground)
-		// ESC[48;2;<r>;<g>;<b>m (Background)
-		print!("\u{1B}[38;2;{};{};{}m{}", r, g, b, c);
 	}
 	//print!("\u{1B}[39m"); // Alternate reset.
 	print!("\u{1B}[0m"); // Reset
@@ -137,8 +137,11 @@ fn main() {
 		let target_width = settings.output_width;
 		let target_height = settings.output_height;
 		let mut img = if settings.input_filename == "" { 
+			// Don't do this because it expects a UTF-8 string:
 			//let mut buffer = String::new();
 			//io::stdin().read_to_string(&mut buffer);
+			// This may be an option:
+			//image::load(std::io::BufReader::new(std::io::stdin()))
 			let mut buffer = Vec::<u8>::new();
 			io::stdin().read_to_end(&mut buffer);
 			match image::load_from_memory(&buffer) {
@@ -153,16 +156,14 @@ fn main() {
 		//let (w,h) = img.dimensions();
 		//let color = img.color();
 		
-		/*
 		img = match settings.region {
-			Some(rect) => { imageops::crop(&mut img, rect.0, rect.1, rect.2-rect.0, rect.3-rect.1) },
+			Some(rect) => { img.crop(rect.0, rect.1, rect.2-rect.0, rect.3-rect.1) },
 			None => { img },
 		};
-		*/
 		let target_region = imageops::resize(&img, target_width, target_height, FilterType::CatmullRom); // Nearest/Triangle/CatmullRom/Gaussian/Lanczos3
 		//for pixel in target_region.pixels() {
 		for (x, y, pixel) in target_region.enumerate_pixels() { // TODO: pixel should be yielding x, y, pixel.
-			print_color_character('#', pixel.data[0], pixel.data[1], pixel.data[2], settings.use_xterm_colors);
+			print_color_character('#', pixel.data[0], pixel.data[1], pixel.data[2], settings.use_full_colors);
 			if x == target_width-1 {
 				print!("\n");
 			}
