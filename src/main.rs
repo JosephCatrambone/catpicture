@@ -137,10 +137,11 @@ fn main() {
 		let target_width = settings.output_width;
 		let target_height = settings.output_height;
 		let mut img = if settings.input_filename == "" { 
-			let mut buffer = String::new();
+			//let mut buffer = String::new();
 			//io::stdin().read_to_string(&mut buffer);
-			io::copy(&mut io::stdin(), &mut buffer);
-			match image::load_from_memory(&buffer.as_bytes()) {
+			let mut buffer = Vec::<u8>::new();
+			io::stdin().read_to_end(&mut buffer);
+			match image::load_from_memory(&buffer) {
 				Ok(img) => img,
 				Err(problem) => { panic!("Problem loading image from stream."); }
 			}
