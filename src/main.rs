@@ -158,6 +158,17 @@ fn print_help() {
 	println!("{}", HELP_STRING);
 }
 
+fn calculate_target_dimension(maybe_width : Option<u32>, maybe_height : Option<u32>, image_width : u32, image_height : u32) -> (u32, u32) {
+	let aspect_ratio = image_width as f32 / image_height as f32;
+	let (target_width, target_height) = match (maybe_width, maybe_height) { 
+		(Some(w), Some(h)) => (w, h),
+		(Some(w), None) => (w, (w as f32/aspect_ratio) as u32),
+		(None, Some(h)) => ((h as f32*aspect_ratio) as u32, h), 
+		(None, None) => (DEFAULT_WIDTH, (DEFAULT_WIDTH as f32*aspect_ratio) as u32),
+	};
+	(target_width, target_height)
+}
+
 fn main() {
 	let arguments: Vec<_> = env::args().collect();
 	let settings = parse_args(arguments);
@@ -184,13 +195,9 @@ fn main() {
 		// Calculate aspect ratio and see if there are any requests outside the image range.
 		let (image_width, image_height) = img.dimensions();
 		//let color = img.color();
-		let (target_width, target_height) = match (settings.output_width, settings.output_height) { 
-			(Some(w), Some(h)) => (w, h),
-			(Some(w), None) => (w, 30), // TODO: Calculate aspect ratio.
-			(None, Some(h)) => (DEFAULT_WIDTH, h), // TODO: ^
-			(None, None) => (image_width, image_height),
-		};
+		let (target_width, target_height) = calculate_target_dimension(settings.output_width, settings.output_height, image_width, image_height);
 		
+		// Only crop if the rect flag is set.
 		img = match settings.region {
 			Some(rect) => { img.crop(rect.0, rect.1, rect.2-rect.0, rect.3-rect.1) },
 			None => { img },
@@ -198,12 +205,20 @@ fn main() {
 		let target_region = imageops::resize(&img, target_width, target_height, FilterType::CatmullRom); // Nearest/Triangle/CatmullRom/Gaussian/Lanczos3
 		//for pixel in target_region.pixels() {
 		for (x, _, pixel) in target_region.enumerate_pixels() { // TODO: pixel should be yielding x, y, pixel.
+			// Extract pixel color and, if needed, convert it to grey before passing it off to the draw method.
 			let mut rgb = (pixel.data[0], pixel.data[1], pixel.data[2]);
 			if settings.force_grey {
 				let sum_rgb : u8 = ((pixel.data[0] as u32 + pixel.data[1] as u32 + pixel.data[2] as u32) / 3) as u8;
 				rgb = (sum_rgb, sum_rgb, sum_rgb);
 			}
+
+			// TODO: Here we figure out the best character to use to display the given region.
+			// We need to provide both the original and the resized for sampling.
+
+			// Finally, pass the color and the character to use to the draw method.
 			print_color_character('#', rgb, (0, 0, 0), settings.use_full_colors);
+
+			// Generate newline if we're at the edge of the output.
 			if x == target_width-1 {
 				print!("\n");
 			}
