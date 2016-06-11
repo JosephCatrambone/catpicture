@@ -198,7 +198,11 @@ fn main() {
 		let target_region = imageops::resize(&img, target_width, target_height, FilterType::CatmullRom); // Nearest/Triangle/CatmullRom/Gaussian/Lanczos3
 		//for pixel in target_region.pixels() {
 		for (x, _, pixel) in target_region.enumerate_pixels() { // TODO: pixel should be yielding x, y, pixel.
-			let rgb = (pixel.data[0], pixel.data[1], pixel.data[2]);
+			let mut rgb = (pixel.data[0], pixel.data[1], pixel.data[2]);
+			if settings.force_grey {
+				let sum_rgb : u8 = ((pixel.data[0] as u32 + pixel.data[1] as u32 + pixel.data[2] as u32) / 3) as u8;
+				rgb = (sum_rgb, sum_rgb, sum_rgb);
+			}
 			print_color_character('#', rgb, (0, 0, 0), settings.use_full_colors);
 			if x == target_width-1 {
 				print!("\n");
