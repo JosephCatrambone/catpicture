@@ -4,8 +4,8 @@ extern crate image;
  * @author Joseph Catrambone <jo.jcat@gmail.com>
  * Release notes:
  * v0.1.0 : First release -- Supports just '#' for output style.  Allows -c for full-color mode, -r, -w, -h to change sizes.
- **v0.2.0 : Automatically select correct aspect ratio when only -w or -h supplied.  Support force-grey.
- * v0.3.0 : Add new line algorithms with --line.  Can fill BG instead of '#', supports BG, '#', and gradient.
+ * v0.2.0 : Automatically select correct aspect ratio when only -w or -h supplied.  Support force-grey.
+ **v0.3.0 : Add new line algorithms with --line.  Can fill BG instead of '#', supports BG, '#', and gradient.
  * v0.4.0 : Use nearest neighbor to select the best looking ascii stand-in.
  * v0.5.0 : Hardening and improvements to robustness.  Bounds checking.  Ready for beta release.
  * v0.6.0 : Allow threshold to be set for _not_ drawing, so if people want black text to show as empty space (for writing to text file), that can be done.
