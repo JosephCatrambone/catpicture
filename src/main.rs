@@ -13,12 +13,13 @@ extern crate image;
  */
 
 use std::collections::HashMap;
+use std::f64; // For atan2.
 use std::env;
 use std::io::{Read, self};
 use std::option::Option;
 use std::path::Path;
 
-use image::{GenericImage, imageops, FilterType, DynamicImage};
+use image::{GenericImage, imageops, FilterType, DynamicImage, Pixel}; // Pixel used for .to_luma.
 
 const DEFAULT_WIDTH : u32 = 80;
 const LINE_ALGORITHM : &'static str = "-d";
@@ -197,8 +198,38 @@ fn calculate_target_dimension(maybe_width : Option<u32>, maybe_height : Option<u
 
 /// find_best_line
 /// Given a dynamic image, a source pixel, and the width and the height of the output region for the source pixel, find the best fitting line.
-fn find_best_line(x : u32, y : u32, w : u32, h : u32, input_image : &DynamicImage) -> char {
-	'|'
+fn find_best_line(x : u32, y : u32, w : u32, h : u32, img : &DynamicImage) -> char {
+	if x+w > img.dimensions().0 || y+h > img.dimensions().1 {
+		return ' ';
+	}
+
+	let mut x_grad : f64 = 0.0;
+	let mut y_grad : f64 = 0.0;
+	let mut cumulative_illumination : f64 = 0.0;
+	for py in y..(y+h-1) {
+		for px in x..(x+w-1) {
+			let p = img.get_pixel(px, py).to_luma().data[0] as i32;
+			let dx = p-(img.get_pixel(px+1, py).to_luma().data[0] as i32);
+			let dy = p-(img.get_pixel(px, py+1).to_luma().data[0] as i32);
+			cumulative_illumination += p as f64;
+			x_grad += dx.abs() as f64;
+			y_grad += dy.abs() as f64;
+		}
+	}
+	//let pi = f64::consts::PI;
+	//let angle = y_grad.atan2(x_grad) * 180.0 / pi;
+	let t = 10.0; // Edge threshold.
+	if x_grad.abs() < t && y_grad.abs() < t && (cumulative_illumination / (w as f64 * h as f64)) < 0.5 {
+		'.'
+	} else if x_grad.abs() > y_grad.abs() {
+		'|'
+	} else if x_grad.abs() < y_grad.abs() {
+		'-'
+	} else if (x_grad - y_grad).abs() < t && x_grad.abs() > t {
+		'+'
+	} else {
+		'#'
+	}
 }
 
 fn find_best_character(x : u32, y : u32, w : u32, h : u32, input_image : &DynamicImage) -> char {
@@ -244,6 +275,7 @@ fn main() {
 			// Extract pixel color and, if needed, convert it to grey before passing it off to the draw method.
 			let mut rgb = (pixel.data[0], pixel.data[1], pixel.data[2]);
 			if settings.force_grey {
+				// TODO: Check if already luma and use to_luma.
 				let sum_rgb : u8 = ((pixel.data[0] as u32 + pixel.data[1] as u32 + pixel.data[2] as u32) / 3) as u8;
 				rgb = (sum_rgb, sum_rgb, sum_rgb);
 			}
@@ -252,8 +284,8 @@ fn main() {
 			match settings.draw_mode {
 				DrawMode::None => { print_color_character(' ', (0, 0, 0), rgb, settings.use_full_colors) },
 				DrawMode::Char(c) => { print_color_character(c, rgb, (0, 0, 0), settings.use_full_colors) },
-				DrawMode::Line => { print_color_character(find_best_line(x, y, 10, 10, &img), rgb, (0, 0, 0), settings.use_full_colors) },
-				DrawMode::Art => { print_color_character(find_best_character(x, y, 10, 10, &img), rgb, (0, 0, 0), settings.use_full_colors) },
+				DrawMode::Line => { print_color_character(find_best_line(x, y, 5, 5, &img), rgb, (0, 0, 0), settings.use_full_colors) }, // TODO: Change window to correct size.
+				DrawMode::Art => { print_color_character(find_best_character(x, y, 5, 5, &img), rgb, (0, 0, 0), settings.use_full_colors) },
 			};
 
 			// Generate newline if we're at the edge of the output.
