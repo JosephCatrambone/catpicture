@@ -18,7 +18,7 @@ use std::io::{Read, self};
 use std::option::Option;
 use std::path::Path;
 
-use image::{GenericImage, imageops, FilterType}; // DynamicImage
+use image::{GenericImage, imageops, FilterType, DynamicImage};
 
 const DEFAULT_WIDTH : u32 = 80;
 const LINE_ALGORITHM : &'static str = "-d";
@@ -31,7 +31,7 @@ const HELP_SHORT : &'static str = "-?";
 const HELP_LONG : &'static str = "--help";
 const HELP_STRING : &'static str = r#"
 Usage: 
-catpicture [--help|-?] [-c] [-w] [-h] [-r x1 y1 x2 y2] [-g] [-d none|block|line|char] [filename]
+catpicture [--help|-?] [-c] [-w] [-h] [-r x1 y1 x2 y2] [-g] [-d none|block|line|art|char x] [filename]
 --help/-?	This message.
 -c	Try to use full color instead of nearest XTERM color. 
 -w	Set output width.
@@ -42,9 +42,17 @@ catpicture [--help|-?] [-c] [-w] [-h] [-r x1 y1 x2 y2] [-g] [-d none|block|line|
 		none -> Only background color will be filled.
 		block -> A single '#' will be used on top of a black background.
 		line -> Find the steepest gradient in the image and fill with an appropriate ascii character.
-		char -> Use nearest neighbor to find the best approximate character match for a patch.
+		art -> Use nearest neighbor to find the best approximate character match for a patch.
+		char -> Use the specified character to draw.
 filename	The name of the image to open.  If unspecified, reads from stdin.
 "#;
+
+enum DrawMode {
+	None,
+	Char(char),
+	Line,
+	Art,
+}
 
 struct Settings {
 	input_filename : String, // Will be "" for stdin.
@@ -54,6 +62,7 @@ struct Settings {
 	use_full_colors : bool,
 	show_help : bool,
 	force_grey : bool,
+	draw_mode : DrawMode,
 }
 
 fn parse_args(args : Vec<String>) -> Settings {
@@ -65,6 +74,7 @@ fn parse_args(args : Vec<String>) -> Settings {
 		show_help : false,
 		use_full_colors : false,
 		force_grey : false,
+		draw_mode : DrawMode::Char('#'),
 	};
 
 	let mut skip_args = 0; // True if the argument was consumed.
@@ -74,20 +84,36 @@ fn parse_args(args : Vec<String>) -> Settings {
 			continue;
 		}
 		// args[0] == file name.
-		if args[i] == USE_FULL_COLORS {
+		let arg = args[i].to_lowercase();
+		if arg == USE_FULL_COLORS {
 			settings.use_full_colors = true;
-		} else if args[i] == HELP_SHORT || args[i] == HELP_LONG {
+		} else if arg == HELP_SHORT || args[i] == HELP_LONG {
 			settings.show_help = true;
-		} else if args[i] == OUTPUT_WIDTH { // TODO: Check OOB.
+		} else if arg == OUTPUT_WIDTH { // TODO: Check OOB.
 			settings.output_width = Some(args[i+1].parse::<u32>().unwrap());
 			skip_args = 1;
-		} else if args[i] == OUTPUT_HEIGHT { // TODO: Check OOB and, if the user has no i+1, display help.
+		} else if arg == OUTPUT_HEIGHT { // TODO: Check OOB and, if the user has no i+1, display help.
 			settings.output_height = Some(args[i+1].parse::<u32>().unwrap());
 			skip_args = 1;
-		} else if args[i] == LINE_ALGORITHM {
-			// TODO: Fill this in.
-			skip_args = 1;
-		} else if args[i] == SOURCE_RECT {
+		} else if arg == LINE_ALGORITHM {
+			skip_args = 0; // Set this inside the switch.
+			let mode = &args[i+1].to_lowercase();
+			settings.draw_mode = match mode.as_ref() {
+				"none" => DrawMode::None,
+				"block" => DrawMode::Char('#'),
+				"line" => DrawMode::Line,
+				"art" => DrawMode::Art,
+				"char" => {
+					skip_args = 1;
+					DrawMode::Char(args[i+2].chars().nth(0).unwrap())
+				},
+				_ => {
+					println!("Unrecognized draw mode.  Defaulting to block.");
+					DrawMode::Char('#')
+				}
+			};
+			skip_args += 1; // NOTE: Add one because we may skip another line if we have to get the character.
+		} else if arg == SOURCE_RECT {
 			settings.region = Some((
 				args[i+1].parse::<u32>().unwrap(),
 				args[i+2].parse::<u32>().unwrap(),
@@ -95,7 +121,7 @@ fn parse_args(args : Vec<String>) -> Settings {
 				args[i+4].parse::<u32>().unwrap(),
 			));
 			skip_args = 4;
-		} else if args[i] == FORCE_GREY {
+		} else if arg == FORCE_GREY {
 			settings.force_grey = true;
 		} else {
 			if settings.input_filename == "" && args[i].chars().nth(0).unwrap_or('-') != '-' {
@@ -169,6 +195,16 @@ fn calculate_target_dimension(maybe_width : Option<u32>, maybe_height : Option<u
 	(target_width, target_height)
 }
 
+/// find_best_line
+/// Given a dynamic image, a source pixel, and the width and the height of the output region for the source pixel, find the best fitting line.
+fn find_best_line(x : u32, y : u32, w : u32, h : u32, input_image : &DynamicImage) -> char {
+	'|'
+}
+
+fn find_best_character(x : u32, y : u32, w : u32, h : u32, input_image : &DynamicImage) -> char {
+	'#'
+}
+
 fn main() {
 	let arguments: Vec<_> = env::args().collect();
 	let settings = parse_args(arguments);
@@ -204,7 +240,7 @@ fn main() {
 		};
 		let target_region = imageops::resize(&img, target_width, target_height, FilterType::CatmullRom); // Nearest/Triangle/CatmullRom/Gaussian/Lanczos3
 		//for pixel in target_region.pixels() {
-		for (x, _, pixel) in target_region.enumerate_pixels() { // TODO: pixel should be yielding x, y, pixel.
+		for (x, y, pixel) in target_region.enumerate_pixels() { // TODO: pixel should be yielding x, y, pixel.
 			// Extract pixel color and, if needed, convert it to grey before passing it off to the draw method.
 			let mut rgb = (pixel.data[0], pixel.data[1], pixel.data[2]);
 			if settings.force_grey {
@@ -212,11 +248,13 @@ fn main() {
 				rgb = (sum_rgb, sum_rgb, sum_rgb);
 			}
 
-			// TODO: Here we figure out the best character to use to display the given region.
-			// We need to provide both the original and the resized for sampling.
-
-			// Finally, pass the color and the character to use to the draw method.
-			print_color_character('#', rgb, (0, 0, 0), settings.use_full_colors);
+			// Dispatch draw call.  Sometimes we have to select the best character. 
+			match settings.draw_mode {
+				DrawMode::None => { print_color_character(' ', (0, 0, 0), rgb, settings.use_full_colors) },
+				DrawMode::Char(c) => { print_color_character(c, rgb, (0, 0, 0), settings.use_full_colors) },
+				DrawMode::Line => { print_color_character(find_best_line(x, y, 10, 10, &img), rgb, (0, 0, 0), settings.use_full_colors) },
+				DrawMode::Art => { print_color_character(find_best_character(x, y, 10, 10, &img), rgb, (0, 0, 0), settings.use_full_colors) },
+			};
 
 			// Generate newline if we're at the edge of the output.
 			if x == target_width-1 {
