@@ -191,7 +191,7 @@ fn calculate_target_dimension(maybe_width : Option<u32>, maybe_height : Option<u
 		(Some(w), Some(h)) => (w, h),
 		(Some(w), None) => (w, (w as f32/aspect_ratio) as u32),
 		(None, Some(h)) => ((h as f32*aspect_ratio) as u32, h), 
-		(None, None) => (DEFAULT_WIDTH, (DEFAULT_WIDTH as f32*aspect_ratio) as u32),
+		(None, None) => (DEFAULT_WIDTH, (DEFAULT_WIDTH as f32/aspect_ratio) as u32),
 	};
 	(target_width, target_height)
 }
