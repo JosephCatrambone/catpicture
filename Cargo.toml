@@ -1,6 +1,6 @@
 [package]
 name = "catpicture"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["Joseph Catrambone <jo.jcat@gmail.com>"]
 description = "A bin tool inspired by imgcat which dumps an image into a unix terminal with color."
 documentation = ""
