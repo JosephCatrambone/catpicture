@@ -36,7 +36,7 @@ const HELP_SHORT : &'static str = "-?";
 const HELP_LONG : &'static str = "--help";
 const HELP_STRING : &'static str = r#"
 Usage: 
-catpicture [--help|-?] [-c] [-w] [-h] [-r x1 y1 x2 y2] [-g] [-d none|block|art|char x] [filename]
+catpicture [--help|-?] [-c] [-w] [-h] [-r x1 y1 x2 y2] [-g] [-d block|art|char x] [filename]
 --help/-?	This message.
 -c	Try to use full color instead of nearest XTERM color. 
 -w	Set output width.
@@ -44,8 +44,7 @@ catpicture [--help|-?] [-c] [-w] [-h] [-r x1 y1 x2 y2] [-g] [-d none|block|art|c
 -r xywh	Given four points (left top right bottom), cut the specified region from the picture for display.
 -g	Force greyscale on image.
 -d	Specify the 'draw mode' for the output. 
-		none -> Only background color will be filled.
-		block -> A single '#' will be used on top of a black background.
+		block -> Only background will be filled.
 		art -> Use nearest neighbor to find the best approximate character match for a patch.
 		char -> Use the specified character to draw.
 filename	The name of the image to open.  If unspecified, reads from stdin.
@@ -53,7 +52,7 @@ filename	The name of the image to open.  If unspecified, reads from stdin.
 
 #[derive(PartialEq)]
 enum DrawMode {
-	None,
+	Block,
 	Char(char),
 	Art,
 }
@@ -78,7 +77,7 @@ fn parse_args(args : Vec<String>) -> Settings {
 		show_help : false,
 		use_full_colors : false,
 		force_grey : false,
-		draw_mode : DrawMode::Char('#'),
+		draw_mode : DrawMode::Block,
 	};
 
 	let mut skip_args = 0; // True if the argument was consumed.
@@ -110,8 +109,7 @@ fn parse_args(args : Vec<String>) -> Settings {
 			skip_args = 0; // Set this inside the switch.
 			let mode = &args[i+1].to_lowercase();
 			settings.draw_mode = match mode.as_ref() {
-				"none" => DrawMode::None,
-				"block" => DrawMode::Char('#'),
+				"block" => DrawMode::Block,
 				"art" => DrawMode::Art,
 				"char" => {
 					skip_args = 1;
@@ -308,7 +306,7 @@ fn main() {
 
 			// Dispatch draw call.  Sometimes we have to select the best character. 
 			match settings.draw_mode {
-				DrawMode::None => { print_color_character(' ', (0, 0, 0), rgb, settings.use_full_colors) },
+				DrawMode::Block => { print_color_character(' ', (0, 0, 0), rgb, settings.use_full_colors) },
 				DrawMode::Char(c) => { print_color_character(c, rgb, (0, 0, 0), settings.use_full_colors) },
 				DrawMode::Art => { print_color_character(find_best_character(x, y, target_width, target_height, &img, &character_image_vector), rgb, (0, 0, 0), settings.use_full_colors) },
 			};

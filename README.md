@@ -20,10 +20,10 @@ curl -sv imageurl | catpicture [args]
 
 * -w Specify output width. (Default: 80).
 * -h Output height. (Default: Determined from aspect ratio of input image.)
-* -r <x y w h> - Select a sub-rectancle with the given dimensions.
+* -r [x y w h] - Select a sub-rectancle with the given dimensions.
 * -c Try to display full color. (Only if your terminal supports full color.)
 * -g Force greyscale. (Try using with -c to get full grey range if your terminal supports it.)
-* -d <none|block|char c|art> Change drawing mode. None will fill background. Block (default) will fill with '#'. Char will fill with the given character.  Art will try to use ascii characters.
+* -d [block (Default) |char [c]|art] Change drawing mode. Block (default) will fill with solid color blocks. Char will fill with the given character.  Art will try to use ascii characters.
 
 ## Release Plan
 
