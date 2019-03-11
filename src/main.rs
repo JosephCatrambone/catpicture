@@ -22,7 +22,7 @@ use std::io::{Cursor, Read, self};
 use std::option::Option;
 use std::path::Path;
 
-use image::{GenericImage, imageops, FilterType, DynamicImage, Pixel}; // Pixel used for .to_luma.
+use image::{GenericImage, imageops, FilterType, DynamicImage, Pixel, GenericImageView}; // Pixel used for .to_luma.
 
 const COMPARISON_SET : &'static str = "characters.png";
 const DEFAULT_WIDTH : u32 = 80;
